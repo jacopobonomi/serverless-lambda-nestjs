@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core'
 import { Server } from 'http'
 import { ExpressAdapter } from '@nestjs/platform-express'
 import * as serverless from 'aws-serverless-express'
-import express from 'express'
+import express, { Request, Response, NextFunction } from 'express'
 import 'reflect-metadata'
 import { APIGatewayProxyEvent, Context, APIGatewayEvent } from 'aws-lambda'
 
@@ -14,16 +14,20 @@ export type NestAplicationCallback = (
 ) => INestApplication | Promise<INestApplication>;
 const defaultCallback: NestAplicationCallback = app => app
 
+export interface NestApplicationServerlessOptions extends NestApplicationOptions {
+  rawBody?: boolean
+}
 /**
  * Wrapper class for Nestjs in AWS Lambda
  */
 export class ServerlessNestjsApplicationFactory<T = any> {
   private readonly AppModule: T;
-  private options: NestApplicationOptions;
+  private options: NestApplicationServerlessOptions;
+  // private expressOptions:
   private callback: NestAplicationCallback;
   constructor (
     AppModule: T,
-    options: NestApplicationOptions = {},
+    options: NestApplicationServerlessOptions = {},
     callback: NestAplicationCallback = defaultCallback
   ) {
     this.AppModule = AppModule
@@ -35,7 +39,7 @@ export class ServerlessNestjsApplicationFactory<T = any> {
    * Update your nest application options
    * @param options
    */
-  public updateOptions (options: NestApplicationOptions) {
+  public updateOptions (options: NestApplicationServerlessOptions) {
     this.options = options
     return this
   }
@@ -62,11 +66,28 @@ export class ServerlessNestjsApplicationFactory<T = any> {
    */
   public async createApplication () {
     const expressApp = express()
+    if (this.options.rawBody) {
+      expressApp.use(function (req: any, res: Response, next: NextFunction) {
+        let data = ''
+        req.setEncoding('utf8')
+        req.on('data', function (chunk: any) {
+          data += chunk
+        })
+        req.on('end', function () {
+          req.rawBody = data
+          next()
+        })
+      })
+    }
+
+    expressApp.use()
+
     const adapter = new ExpressAdapter(expressApp)
+    const options: NestApplicationOptions = this.options
     const application = await NestFactory.create(
       this.AppModule,
       adapter,
-      this.options
+      options
     )
     const app = await this.callback(application)
     app.init()
