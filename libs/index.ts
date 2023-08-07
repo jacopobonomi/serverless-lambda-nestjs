@@ -3,9 +3,9 @@ import { NestFactory } from '@nestjs/core'
 import { Server } from 'http'
 import { ExpressAdapter } from '@nestjs/platform-express'
 import * as serverless from 'aws-serverless-express'
-import express, { Request, Response, NextFunction } from 'express'
+import express, { Response, NextFunction } from 'express'
 import 'reflect-metadata'
-import { APIGatewayProxyEvent, Context, APIGatewayEvent } from 'aws-lambda'
+import { Context } from 'aws-lambda'
 
 let cachedServer: Server
 
@@ -67,7 +67,7 @@ export class ServerlessNestjsApplicationFactory<T = any> {
   public async createApplication () {
     const expressApp = express()
     if (this.options.rawBody) {
-      expressApp.use(function (req: any, res: Response, next: NextFunction) {
+      expressApp.use(function (req: any, _res: Response, next: NextFunction) {
         let data = ''
         req.setEncoding('utf8')
         req.on('data', function (chunk: any) {
@@ -79,8 +79,6 @@ export class ServerlessNestjsApplicationFactory<T = any> {
         })
       })
     }
-
-    expressApp.use()
 
     const adapter = new ExpressAdapter(expressApp)
     const options: NestApplicationOptions = this.options
@@ -100,7 +98,7 @@ export class ServerlessNestjsApplicationFactory<T = any> {
    * @param context
    */
   public async run (
-    event: APIGatewayProxyEvent | APIGatewayEvent,
+    event: any,
     context: Context
   ) {
     if (!cachedServer) {
